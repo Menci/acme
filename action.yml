@@ -1,0 +1,127 @@
+name: Issue SSL certificate
+description: Issue SSL certificate with acme.sh's DNS API mode.
+branding:
+  icon: lock
+  color: green
+inputs:
+  version:
+    description: The version of acme.sh. By default the latest version is used.
+    required: false
+    default: ''
+  account-conf-content:
+    description: The text content of your `account.conf`, should be stored in secrets. If not specfied you should provide your DNS API token with environment variables.
+    required: false
+    default: ''
+  domains:
+    description: The list of domains you want to issue certificate for. Separated by any blank characters (allowing newlines). Overrided by `domains-file` field.
+    required: false
+    default: ''
+  domains-file:
+    description: The file containing a list of domains you want to issue certificate for. Separated by any blank characters (allowing newlines). Overrides `domains` field.
+    required: false
+    default: ''
+  append-wildcard:
+    description: Whether to add a wildcard entry for each of your domain in `domains`.
+    required: false
+    default: true
+  arguments:
+    description: The arguments to pass to acme.sh (will be prepended to all `-d domain.name` items). The first argument `--issue` should be omitted. For example `--dns dns_cf --challenge-alias example.com`. Overrided by `arguments-file` field.
+    required: false
+    default: ''
+  arguments-file:
+    description: The file containing arguments to pass to acme.sh (will be prepended to all `-d domain.name` items). The first argument `--issue` should be omitted. For example `--dns dns_cf --challenge-alias example.com`. Overrides `arguments` field.
+    required: false
+    default: ''
+  output-fullchain:
+    description: The target path for the issued certificate's fullchain PEM file. Omit if you don't need.
+    required: false
+    default: ''
+  output-key:
+    description: The target path for the issued certificate's private key PEM file. Omit if you don't need.
+    required: false
+    default: ''
+  output-pfx:
+    description: The target path for the issued certificate's PKCS#12 certificate file. Please also specify the `output-pfx-password` option. Omit if you don't need.
+    required: false
+    default: ''
+  output-pfx-password:
+    description: The password for the output PKCS#12 certificate file. Ignored when `output-pfx` is not specfied.
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Install acme.sh
+      run: curl https://get.acme.sh | sh
+      shell: bash
+      env:
+        BRANCH: ${{ inputs.version }}
+    - name: Create account.conf for acme.sh
+      run: |
+        if ! [[ -z "$ACME_SH_INPUT_ACCOUNT_CONF_CONTENT" ]]; then
+          echo "$ACME_SH_INPUT_ACCOUNT_CONF_CONTENT" > ~/.acme.sh/account.conf
+        fi
+      shell: bash
+      env:
+        ACME_SH_INPUT_ACCOUNT_CONF_CONTENT: ${{ inputs.account-conf-content }}
+    - name: Preprocess domain list
+      run: |
+        if ! [[ -z "$ACME_SH_INPUT_DOMAINS_FILE" ]]; then
+            ACME_SH_INPUT_DOMAINS="$(cat "$ACME_SH_INPUT_DOMAINS_FILE")"
+        fi
+        ACME_SH_DOMAINS="$(echo "$ACME_SH_INPUT_DOMAINS" | xargs)"
+        ACME_SH_FIRST_DOMAIN="$(cut -d ' ' -f1 <<< "$ACME_SH_DOMAINS")"
+        if [[ -z "$ACME_SH_FIRST_DOMAIN" ]]; then
+            echo 'No domains!'
+            exit 1
+        fi
+        ACME_SH_DOMAIN_REGEX='([A-Za-z0-9\.\*-]+)'
+        if [[ "$ACME_SH_APPEND_WILDCARD" == "true" ]]; then
+            ACME_SH_DOMAINS="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/\1 *.\1/g" <<< "$ACME_SH_DOMAINS")"
+        fi
+        ACME_SH_ARGS_DOMAINS="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/-d '\1'/g" <<< "$ACME_SH_DOMAINS")"
+        # Workaround actions#runner/789
+        ACME_SH_GITHUB_ENV_CONTENT="$(cat "$GITHUB_ENV")"
+        echo "$ACME_SH_GITHUB_ENV_CONTENT" | grep -v "^ACME_SH_FIRST_DOMAIN=" | grep -v "^ACME_SH_ARGS_DOMAINS=" > "$GITHUB_ENV"
+        echo "ACME_SH_FIRST_DOMAIN=$ACME_SH_FIRST_DOMAIN" >> "$GITHUB_ENV"
+        echo "ACME_SH_ARGS_DOMAINS=$ACME_SH_ARGS_DOMAINS" >> "$GITHUB_ENV"
+      shell: bash
+      env:
+        ACME_SH_INPUT_DOMAINS: ${{ inputs.domains }}
+        ACME_SH_INPUT_DOMAINS_FILE: ${{ inputs.domains-file }}
+        ACME_SH_APPEND_WILDCARD: ${{ inputs.append-wildcard }}
+    - name: Issue certificate
+      run: |
+        if ! [[ -z "$ACME_SH_INPUT_ARGS_PREPENDED_FILE" ]]; then
+            ACME_SH_INPUT_ARGS_PREPENDED="$(cat "$ACME_SH_INPUT_ARGS_PREPENDED_FILE")"
+        fi
+        if [[ -z "$ACME_SH_INPUT_ARGS_PREPENDED" ]]; then
+            echo 'No arguments!'
+            exit 1
+        fi
+        echo "$ACME_SH_INPUT_ARGS_PREPENDED" "$ACME_SH_ARGS_DOMAINS" | xargs ~/.acme.sh/acme.sh --issue
+      shell: bash
+      env:
+        ACME_SH_INPUT_ARGS_PREPENDED: ${{ inputs.arguments }}
+        ACME_SH_INPUT_ARGS_PREPENDED_FILE: ${{ inputs.arguments-file }}
+    - name: Copy certificate to output paths
+      run: |
+        ACME_SH_TEMP_DIR="$(mktemp -d)"
+        ACME_SH_TEMP_FILE_FULLCHAIN="$ACME_SH_TEMP_DIR/fullchain.pem"
+        ACME_SH_TEMP_FILE_KEY="$ACME_SH_TEMP_DIR/key.pem"
+        ~/.acme.sh/acme.sh --install-cert -d "$ACME_SH_FIRST_DOMAIN" --fullchain-file "$ACME_SH_TEMP_FILE_FULLCHAIN" --key-file "$ACME_SH_TEMP_FILE_KEY"
+        [[ -z "$ACME_SH_OUTPUT_FULLCHAIN" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_FULLCHAIN")" && cp "$ACME_SH_TEMP_FILE_FULLCHAIN" "$ACME_SH_OUTPUT_FULLCHAIN")
+        [[ -z "$ACME_SH_OUTPUT_KEY" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_KEY")" && cp "$ACME_SH_TEMP_FILE_KEY" "$ACME_SH_OUTPUT_KEY")
+        [[ -z "$ACME_SH_OUTPUT_PFX" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_PFX")" && openssl pkcs12 -export -out "$ACME_SH_OUTPUT_PFX" -in "$ACME_SH_TEMP_FILE_FULLCHAIN" -inkey "$ACME_SH_TEMP_FILE_KEY" -password "pass:$ACME_SH_OUTPUT_PFX_PASSWORD")
+        rm -rf "$ACME_SH_TEMP_DIR"
+      shell: bash
+      env:
+        ACME_SH_OUTPUT_FULLCHAIN: ${{ inputs.output-fullchain }}
+        ACME_SH_OUTPUT_KEY: ${{ inputs.output-key }}
+        ACME_SH_OUTPUT_PFX: ${{ inputs.output-pfx }}
+        ACME_SH_OUTPUT_PFX_PASSWORD: ${{ inputs.output-pfx-password }}
+    - name: Uninstall acme.sh
+      run: |
+        ~/.acme.sh/acme.sh --uninstall
+        rm -rf ~/.acme.sh
+      shell: bash
