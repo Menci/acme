@@ -2,6 +2,10 @@
 
 Issue SSL certificate with acme.sh's DNS API mode.
 
+You probably want to use this action in a private repo, to upload your issued SSL certificate to repo.
+
+# Usage
+
 ```yaml
 jobs:
   issue-ssl-certificate:
@@ -22,3 +26,7 @@ jobs:
           output-pfx: output/certificate.pfx
           output-pfx-password: qwq
 ```
+
+# See also
+
+You can deploy your newly issued SSL certificate to Azure Web App with the [Deploy SSL certificate to Azure Web App](https://github.com/marketplace/actions/deploy-ssl-certificate-to-azure-web-app) action.
