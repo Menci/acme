@@ -12,7 +12,7 @@ jobs:
     name: Issue SSL certificate
     runs-on: ubuntu-latest
     steps:
-      - use: Menci/acme@beta-v1
+      - uses: Menci/acme@beta-v1
         with:
           version: 3.0.0
           account-conf-content: ${{ secrets.ACME_SH_ACCOUNT_CONF }}
