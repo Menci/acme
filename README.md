@@ -27,6 +27,12 @@ jobs:
           output-pfx-password: qwq
 ```
 
+# Notice
+
+If you issue a certificate with too many domains with DNS alias mode. The TXT records' length will likely exceed the DNS provider's limit and fails ([acmesh-official/acme.sh#3748](https://github.com/acmesh-official/acme.sh/issues/3748)). To workaround this, this action will run acme.sh **multiple times** and issue a smaller certificate each time (so we can verify a smaller amount of domains each time). The result certificate will be fine.
+
 # See also
 
 You can deploy your newly issued SSL certificate to Azure Web App with the [Deploy SSL certificate to Azure Web App](https://github.com/marketplace/actions/deploy-ssl-certificate-to-azure-web-app) action.
+
+You can deploy your newly issued SSL certificate to Aliyun Certificates Service and Aliyun CDN with the [Deploy SSL certificate to Aliyun](https://github.com/marketplace/actions/deploy-ssl-certificate-to-aliyun) action.
