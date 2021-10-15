@@ -79,12 +79,14 @@ runs:
         if [[ "$ACME_SH_APPEND_WILDCARD" == "true" ]]; then
             ACME_SH_DOMAINS="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/\1 *.\1/g" <<< "$ACME_SH_DOMAINS")"
         fi
-        ACME_SH_ARGS_DOMAINS="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/-d '\1'/g" <<< "$ACME_SH_DOMAINS")"
+        ACME_SH_ARGS_DOMAIN_LINES="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/-d '\1'/g" <<< "$ACME_SH_DOMAINS" | tr " " "\n")"
         # Workaround actions#runner/789
         ACME_SH_GITHUB_ENV_CONTENT="$(cat "$GITHUB_ENV")"
         echo "$ACME_SH_GITHUB_ENV_CONTENT" | grep -v "^ACME_SH_FIRST_DOMAIN=" | grep -v "^ACME_SH_ARGS_DOMAINS=" > "$GITHUB_ENV"
         echo "ACME_SH_FIRST_DOMAIN=$ACME_SH_FIRST_DOMAIN" >> "$GITHUB_ENV"
-        echo "ACME_SH_ARGS_DOMAINS=$ACME_SH_ARGS_DOMAINS" >> "$GITHUB_ENV"
+        echo "ACME_SH_ARGS_DOMAIN_LINES<<EOF" >> "$GITHUB_ENV"
+        echo "$ACME_SH_ARGS_DOMAIN_LINES" >> "$GITHUB_ENV"
+        echo "EOF" >> "$GITHUB_ENV"
       shell: bash
       env:
         ACME_SH_INPUT_DOMAINS: ${{ inputs.domains }}
@@ -99,7 +101,14 @@ runs:
             echo 'No arguments!'
             exit 1
         fi
-        echo "$ACME_SH_INPUT_ARGS_PREPENDED" "$ACME_SH_ARGS_DOMAINS" | xargs ~/.acme.sh/acme.sh --issue
+
+        # Workaround acmesh-official/acme.sh#3748
+        ACME_SH_ISSUE_BATCH_SIZE=10
+        ACME_SH_TOTAL_DOMAINS="$(wc -l <<< "$ACME_SH_ARGS_DOMAIN_LINES")"
+        for ((i = ACME_SH_ISSUE_BATCH_SIZE; i - ACME_SH_ISSUE_BATCH_SIZE < ACME_SH_TOTAL_DOMAINS; i += ACME_SH_ISSUE_BATCH_SIZE)); do
+            ACME_SH_ARGS_DOMAINS="$(echo "$ACME_SH_ARGS_DOMAIN_LINES" | head -n "$i" | xargs)"
+            echo "$ACME_SH_INPUT_ARGS_PREPENDED" "$ACME_SH_ARGS_DOMAINS" | xargs ~/.acme.sh/acme.sh --issue
+        done
       shell: bash
       env:
         ACME_SH_INPUT_ARGS_PREPENDED: ${{ inputs.arguments }}
