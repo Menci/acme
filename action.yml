@@ -79,6 +79,8 @@ runs:
         if [[ "$ACME_SH_APPEND_WILDCARD" == "true" ]]; then
             ACME_SH_DOMAINS="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/\1 *.\1/g" <<< "$ACME_SH_DOMAINS")"
         fi
+        # Strip domains included in wildcards
+        ACME_SH_DOMAINS="$(python3 -c "import sys; l = sys.stdin.read().strip().split(' '); l1 = [s.split('.') for s in l]; l2 = ['.'.join(x) for x in l1 if x[0] == '*' or ['*'] + x[1:] not in l1]; print(' '.join(l2))" <<< "$ACME_SH_DOMAINS")"
         ACME_SH_ARGS_DOMAIN_LINES="$(sed -E "s/$ACME_SH_DOMAIN_REGEX/-d '\1'/g" <<< "$ACME_SH_DOMAINS" | tr " " "\n")"
         # Workaround actions#runner/789
         ACME_SH_GITHUB_ENV_CONTENT="$(cat "$GITHUB_ENV")"
