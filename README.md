@@ -12,9 +12,9 @@ jobs:
     name: Issue SSL certificate
     runs-on: ubuntu-latest
     steps:
-      - uses: Menci/acme@beta-v1
+      - uses: Menci/acme@v1
         with:
-          version: 3.0.0
+          version: 3.0.2
 
           # Register your account and try issue a certificate with DNS API mode
           # Then fill with the output of `tar cz ca account.conf | base64 -w0` running in your `~/.acme.sh`
