@@ -9,7 +9,11 @@ inputs:
     required: false
     default: ''
   account-conf-content:
-    description: The text content of your `account.conf`, should be stored in secrets. If not specfied you should provide your DNS API token with environment variables.
+    description: (Deprecated, please use "account-tar") The text content of your `account.conf`, should be stored in secrets. If not specfied you should provide your DNS API token with environment variables.
+    required: false
+    default: ''
+  account-tar:
+    description: Base64 encoded tar file content of your account files in `~/.acme.sh` (i.e. output of `tar cz ca account.conf | base64 -w0` in your `~/.acme.sh` directory).
     required: false
     default: ''
   domains:
@@ -48,6 +52,10 @@ inputs:
     description: The password for the output PKCS#12 certificate file. Ignored when `output-pfx` is not specfied.
     required: false
     default: ''
+  uninstall:
+    description: Whether or not to uninstall acme.sh after running this action. Use `false` to keep.
+    required: false
+    default: true
 runs:
   using: "composite"
   steps:
@@ -56,14 +64,19 @@ runs:
       shell: bash
       env:
         BRANCH: ${{ inputs.version }}
-    - name: Create account.conf for acme.sh
+    - name: Extract account files for acme.sh
       run: |
         if ! [[ -z "$ACME_SH_INPUT_ACCOUNT_CONF_CONTENT" ]]; then
           echo "$ACME_SH_INPUT_ACCOUNT_CONF_CONTENT" > ~/.acme.sh/account.conf
         fi
+
+        if ! [[ -z "$ACME_SH_INPUT_ACCOUNT_TAR" ]]; then
+          echo "$ACME_SH_INPUT_ACCOUNT_TAR" | base64 -d | tar -C ~/.acme.sh -xz
+        fi
       shell: bash
       env:
         ACME_SH_INPUT_ACCOUNT_CONF_CONTENT: ${{ inputs.account-conf-content }}
+        ACME_SH_INPUT_ACCOUNT_TAR: ${{ inputs.account-tar }}
     - name: Preprocess domain list
       run: |
         if ! [[ -z "$ACME_SH_INPUT_DOMAINS_FILE" ]]; then
@@ -132,6 +145,7 @@ runs:
         ACME_SH_OUTPUT_PFX: ${{ inputs.output-pfx }}
         ACME_SH_OUTPUT_PFX_PASSWORD: ${{ inputs.output-pfx-password }}
     - name: Uninstall acme.sh
+      if: ${{ inputs.uninstall != 'false' }}
       run: |
         ~/.acme.sh/acme.sh --uninstall
         rm -rf ~/.acme.sh

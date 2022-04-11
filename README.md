@@ -15,16 +15,24 @@ jobs:
       - uses: Menci/acme@beta-v1
         with:
           version: 3.0.0
-          account-conf-content: ${{ secrets.ACME_SH_ACCOUNT_CONF }}
+
+          # Register your account and try issue a certificate with DNS API mode
+          # Then fill with the output of `tar cz ca account.conf | base64 -w0` running in your `~/.acme.sh`
+          account-tar: ${{ secrets.ACME_SH_ACCOUNT_TAR }}
+
           domains: example.com example.net example.org example.edu
           domains-file: ''
           append-wildcard: true
+
           arguments: --dns dns_cf --challenge-alias example.com
           arguments-file: ''
+
           output-fullchain: output/fullchain.pem
           output-key: output/key.pem
           output-pfx: output/certificate.pfx
           output-pfx-password: qwq
+
+          # uninstall: true # Uninstall acme.sh after this action by default
 ```
 
 # Notice
