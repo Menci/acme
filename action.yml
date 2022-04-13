@@ -117,13 +117,24 @@ runs:
             exit 1
         fi
 
-        # Workaround acmesh-official/acme.sh#3748
-        ACME_SH_ISSUE_BATCH_SIZE=10
-        ACME_SH_TOTAL_DOMAINS="$(wc -l <<< "$ACME_SH_ARGS_DOMAIN_LINES")"
-        for ((i = ACME_SH_ISSUE_BATCH_SIZE; i - ACME_SH_ISSUE_BATCH_SIZE < ACME_SH_TOTAL_DOMAINS; i += ACME_SH_ISSUE_BATCH_SIZE)); do
-            ACME_SH_ARGS_DOMAINS="$(echo "$ACME_SH_ARGS_DOMAIN_LINES" | head -n "$i" | xargs)"
-            echo "$ACME_SH_INPUT_ARGS_PREPENDED" "$ACME_SH_ARGS_DOMAINS" | xargs ~/.acme.sh/acme.sh --issue
-        done
+        function acme_sh_issue() {
+            echo "$ACME_SH_INPUT_ARGS_PREPENDED" "$1" | xargs ~/.acme.sh/acme.sh --issue
+        }
+
+        if ! acme_sh_issue "$ACME_SH_ARGS_DOMAIN_LINES"; then
+            # Workaround acmesh-official/acme.sh#3748
+            ACME_SH_ISSUE_BATCH_SIZE=10
+            ACME_SH_TOTAL_DOMAINS="$(wc -l <<< "$ACME_SH_ARGS_DOMAIN_LINES")"
+            for ((i = ACME_SH_ISSUE_BATCH_SIZE; i - ACME_SH_ISSUE_BATCH_SIZE < ACME_SH_TOTAL_DOMAINS; i += ACME_SH_ISSUE_BATCH_SIZE)); do
+                ACME_SH_ARGS_DOMAINS="$(echo "$ACME_SH_ARGS_DOMAIN_LINES" | head -n "$i" | xargs)"
+                acme_sh_issue "$ACME_SH_ARGS_DOMAINS"
+
+                if [[ "$i" != "$ACME_SH_TOTAL_DOMAINS" ]]; then
+                    echo Sleeping for 30s before next attempt.
+                    sleep 30
+                fi
+            done
+        fi
       shell: bash
       env:
         ACME_SH_INPUT_ARGS_PREPENDED: ${{ inputs.arguments }}
