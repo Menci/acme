@@ -147,7 +147,13 @@ runs:
         ~/.acme.sh/acme.sh --install-cert -d "$ACME_SH_FIRST_DOMAIN" --fullchain-file "$ACME_SH_TEMP_FILE_FULLCHAIN" --key-file "$ACME_SH_TEMP_FILE_KEY"
         [[ -z "$ACME_SH_OUTPUT_FULLCHAIN" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_FULLCHAIN")" && cp "$ACME_SH_TEMP_FILE_FULLCHAIN" "$ACME_SH_OUTPUT_FULLCHAIN")
         [[ -z "$ACME_SH_OUTPUT_KEY" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_KEY")" && cp "$ACME_SH_TEMP_FILE_KEY" "$ACME_SH_OUTPUT_KEY")
-        [[ -z "$ACME_SH_OUTPUT_PFX" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_PFX")" && openssl pkcs12 -export -out "$ACME_SH_OUTPUT_PFX" -in "$ACME_SH_TEMP_FILE_FULLCHAIN" -inkey "$ACME_SH_TEMP_FILE_KEY" -password "pass:$ACME_SH_OUTPUT_PFX_PASSWORD")
+        [[ -z "$ACME_SH_OUTPUT_PFX" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_PFX")" && (
+            OPENSSL_ARGS_EXTRA=""
+            if openssl pkcs12 --help 2>&1 | grep "\-legacy" >/dev/null; then
+                OPENSSL_ARGS_EXTRA="-legacy"
+            fi
+            openssl pkcs12 $OPENSSL_ARGS_EXTRA -export -out "$ACME_SH_OUTPUT_PFX" -in "$ACME_SH_TEMP_FILE_FULLCHAIN" -inkey "$ACME_SH_TEMP_FILE_KEY" -password "pass:$ACME_SH_OUTPUT_PFX_PASSWORD"
+        ))
         rm -rf "$ACME_SH_TEMP_DIR"
       shell: bash
       env:
