@@ -36,6 +36,10 @@ inputs:
     description: The file containing arguments to pass to acme.sh (will be prepended to all `-d domain.name` items). The first argument `--issue` should be omitted. For example `--dns dns_cf --challenge-alias example.com`. Overrides `arguments` field.
     required: false
     default: ''
+  arguments-install:
+    description: The arguments to pass to acme.sh to `install-cert`.
+    required: false
+    default: ''
   output-fullchain:
     description: The target path for the issued certificate's fullchain PEM file. Omit if you don't need.
     required: false
@@ -144,7 +148,7 @@ runs:
         ACME_SH_TEMP_DIR="$(mktemp -d)"
         ACME_SH_TEMP_FILE_FULLCHAIN="$ACME_SH_TEMP_DIR/fullchain.pem"
         ACME_SH_TEMP_FILE_KEY="$ACME_SH_TEMP_DIR/key.pem"
-        ~/.acme.sh/acme.sh --install-cert -d "$ACME_SH_FIRST_DOMAIN" --fullchain-file "$ACME_SH_TEMP_FILE_FULLCHAIN" --key-file "$ACME_SH_TEMP_FILE_KEY"
+        ~/.acme.sh/acme.sh --install-cert -d "$ACME_SH_FIRST_DOMAIN" --fullchain-file "$ACME_SH_TEMP_FILE_FULLCHAIN" --key-file "$ACME_SH_TEMP_FILE_KEY" "$ACME_SH_INPUT_INSTALL_ARGS_PREPENDED"
         [[ -z "$ACME_SH_OUTPUT_FULLCHAIN" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_FULLCHAIN")" && cp "$ACME_SH_TEMP_FILE_FULLCHAIN" "$ACME_SH_OUTPUT_FULLCHAIN")
         [[ -z "$ACME_SH_OUTPUT_KEY" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_KEY")" && cp "$ACME_SH_TEMP_FILE_KEY" "$ACME_SH_OUTPUT_KEY")
         [[ -z "$ACME_SH_OUTPUT_PFX" ]] || (mkdir -p "$(dirname "$ACME_SH_OUTPUT_PFX")" && (
@@ -161,6 +165,7 @@ runs:
         ACME_SH_OUTPUT_KEY: ${{ inputs.output-key }}
         ACME_SH_OUTPUT_PFX: ${{ inputs.output-pfx }}
         ACME_SH_OUTPUT_PFX_PASSWORD: ${{ inputs.output-pfx-password }}
+        ACME_SH_INPUT_INSTALL_ARGS_PREPENDED: ${{ inputs.arguments-install }}
     - name: Uninstall acme.sh
       if: ${{ inputs.uninstall != 'false' }}
       run: |
