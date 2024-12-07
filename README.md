@@ -27,6 +27,7 @@ jobs:
           arguments: --dns dns_cf --challenge-alias example.com
           arguments-file: ''
 
+          output-cert: output/cert.pem
           output-fullchain: output/fullchain.pem
           output-key: output/key.pem
           output-pfx: output/certificate.pfx
